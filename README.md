@@ -101,32 +101,24 @@ cp .env.example .env
 npm run dev
 ```
 
-4. Deploy to AWS:
-```bash
-npm install -g serverless
-serverless deploy
-```
-
-See [backend/aws-setup.md](backend/aws-setup.md) for detailed AWS setup instructions.
-
 ## Development Workflow
 
 ### Current Status
 
 The iOS app is fully functional with:
-- ✅ User authentication (Login/Signup with CSUF email)
-- ✅ Product browsing and search
-- ✅ Shopping cart
-- ✅ Checkout flow
-- ✅ User profiles and orders
-- ✅ Mock data for testing
+- User authentication (Login/Signup with CSUF email)
+- Product browsing and search
+- Shopping cart
+- Checkout flow
+- User profiles and orders
+- Mock data for testing
 
 The backend includes:
-- ✅ RESTful API structure
-- ✅ Authentication endpoints
-- ✅ Product, order, and review endpoints
-- ✅ Stripe payment integration
-- ✅ AWS deployment configuration
+- RESTful API structure
+- Authentication endpoints
+- Product, order, and review endpoints
+- Stripe payment integration
+- AWS deployment configuration
 
 ### Next Steps
 
@@ -203,18 +195,6 @@ npm test
 Use the included Postman collection or curl:
 ```bash
 curl http://localhost:3000/health
-```
-
-## Deployment
-
-### iOS App
-1. Configure signing in Xcode
-2. Archive the app (Product > Archive)
-3. Distribute to TestFlight or App Store
-
-### Backend
-```bash
-serverless deploy --stage prod
 ```
 
 ## Contributing

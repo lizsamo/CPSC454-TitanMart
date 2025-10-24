@@ -14,15 +14,37 @@ enum OrderStatus: String, Codable {
     case meetingScheduled = "Meeting Scheduled"
     case completed = "Completed"
     case cancelled = "Cancelled"
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self).lowercased()
+
+        switch rawValue {
+        case "pending":
+            self = .pending
+        case "payment processing":
+            self = .paymentProcessing
+        case "confirmed":
+            self = .confirmed
+        case "meeting scheduled":
+            self = .meetingScheduled
+        case "completed":
+            self = .completed
+        case "cancelled":
+            self = .cancelled
+        default:
+            self = .pending
+        }
+    }
 }
 
 struct Order: Identifiable, Codable {
     let id: String
     var items: [CartItem]
     var buyerId: String
-    var buyerName: String
-    var sellerId: String
-    var sellerName: String
+    var buyerName: String?
+    var sellerId: String?
+    var sellerName: String?
     var totalAmount: Double
     var status: OrderStatus
     var paymentIntentId: String?
@@ -34,9 +56,9 @@ struct Order: Identifiable, Codable {
     init(id: String = UUID().uuidString,
          items: [CartItem],
          buyerId: String,
-         buyerName: String,
-         sellerId: String,
-         sellerName: String,
+         buyerName: String? = nil,
+         sellerId: String? = nil,
+         sellerName: String? = nil,
          totalAmount: Double,
          status: OrderStatus = .pending,
          paymentIntentId: String? = nil,

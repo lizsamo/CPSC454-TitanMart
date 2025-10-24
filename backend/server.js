@@ -30,8 +30,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`TitanMart API running on port ${PORT}`);
-});
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`TitanMart API running on port ${PORT}`);
+  });
+}
 
-module.exports = app;
+// For AWS Lambda
+const serverless = require('serverless-http');
+module.exports.handler = serverless(app);

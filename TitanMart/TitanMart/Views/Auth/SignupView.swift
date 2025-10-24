@@ -50,9 +50,11 @@ struct SignupView: View {
 
                         SecureField("Password", text: $password)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textContentType(.none)
 
                         SecureField("Confirm Password", text: $confirmPassword)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textContentType(.none)
 
                         if let error = errorMessage {
                             Text(error)
@@ -110,6 +112,8 @@ struct SignupView: View {
                     fullName: fullName
                 )
                 dismiss()
+            } catch let apiError as APIError {
+                errorMessage = apiError.localizedDescription
             } catch {
                 errorMessage = error.localizedDescription
             }

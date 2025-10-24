@@ -36,8 +36,8 @@ enum APIError: Error {
 class APIService {
     static let shared = APIService()
 
-    // TODO: Replace with your actual AWS API Gateway endpoint
-    private let baseURL = "https://your-api-gateway-url.amazonaws.com/prod"
+    // AWS API Gateway endpoint
+    private let baseURL = "https://r3iarn2t5h.execute-api.us-east-2.amazonaws.com/dev/api"
 
     private init() {}
 
@@ -84,7 +84,24 @@ class APIService {
             }
 
             let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                let dateString = try container.decode(String.self)
+
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let date = formatter.date(from: dateString) {
+                    return date
+                }
+
+                // Fallback without fractional seconds
+                formatter.formatOptions = [.withInternetDateTime]
+                if let date = formatter.date(from: dateString) {
+                    return date
+                }
+
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid date format: \(dateString)")
+            }
             return try decoder.decode(T.self, from: data)
 
         } catch let error as APIError {

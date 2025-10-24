@@ -22,6 +22,18 @@ struct User: Identifiable, Codable {
         fullName.isEmpty ? email : fullName
     }
 
+    enum CodingKeys: String, CodingKey {
+        case id = "userId"
+        case email
+        case fullName
+        case csufEmail
+        case isEmailVerified
+        case profileImageURL
+        case rating
+        case totalRatings
+        case createdAt
+    }
+
     init(id: String = UUID().uuidString,
          email: String,
          fullName: String = "",

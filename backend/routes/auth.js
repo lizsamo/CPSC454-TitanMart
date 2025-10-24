@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, QueryCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { sendVerificationEmail } = require('../utils/email');
 
 const client = new DynamoDBClient({ region: process.env.AWS_REGION });
@@ -23,12 +23,15 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await docClient.send(new GetCommand({
+    const existingUser = await docClient.send(new ScanCommand({
       TableName: process.env.DYNAMODB_USERS_TABLE,
-      Key: { email }
+      FilterExpression: 'email = :email',
+      ExpressionAttributeValues: {
+        ':email': email
+      }
     }));
 
-    if (existingUser.Item) {
+    if (existingUser.Items && existingUser.Items.length > 0) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
@@ -40,7 +43,7 @@ router.post('/register', async (req, res) => {
 
     // Create user
     const user = {
-      id: uuidv4(),
+      userId: uuidv4(),
       email,
       password: hashedPassword,
       csufEmail,
@@ -77,16 +80,19 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     // Find user
-    const result = await docClient.send(new GetCommand({
+    const result = await docClient.send(new ScanCommand({
       TableName: process.env.DYNAMODB_USERS_TABLE,
-      Key: { email }
+      FilterExpression: 'email = :email',
+      ExpressionAttributeValues: {
+        ':email': email
+      }
     }));
 
-    if (!result.Item) {
+    if (!result.Items || result.Items.length === 0) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const user = result.Item;
+    const user = result.Items[0];
 
     // Check password
     const isValidPassword = await bcrypt.compare(password, user.password);
@@ -96,7 +102,7 @@ router.post('/login', async (req, res) => {
 
     // Generate JWT
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.userId, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
@@ -117,10 +123,10 @@ router.post('/verify-email', async (req, res) => {
   try {
     const { code, userId } = req.body;
 
-    // Get user by scanning (in production, use GSI for better performance)
+    // Get user by primary key
     const result = await docClient.send(new GetCommand({
       TableName: process.env.DYNAMODB_USERS_TABLE,
-      Key: { id: userId }
+      Key: { userId: userId }
     }));
 
     if (!result.Item) {
@@ -136,7 +142,7 @@ router.post('/verify-email', async (req, res) => {
     // Update user
     await docClient.send(new UpdateCommand({
       TableName: process.env.DYNAMODB_USERS_TABLE,
-      Key: { id: userId },
+      Key: { userId: userId },
       UpdateExpression: 'SET isEmailVerified = :verified',
       ExpressionAttributeValues: {
         ':verified': true

@@ -4,19 +4,13 @@ provider:
   name: aws
   runtime: nodejs18.x
   stage: ${opt:stage, 'dev'}
-  region: ${opt:region, 'us-west-2'}
+  region: ${opt:region, 'us-east-2'}
   environment:
     DYNAMODB_USERS_TABLE: ${self:service}-users-${self:provider.stage}
     DYNAMODB_PRODUCTS_TABLE: ${self:service}-products-${self:provider.stage}
     DYNAMODB_ORDERS_TABLE: ${self:service}-orders-${self:provider.stage}
     DYNAMODB_REVIEWS_TABLE: ${self:service}-reviews-${self:provider.stage}
     S3_BUCKET_NAME: ${self:service}-images-${self:provider.stage}
-    JWT_SECRET: ${env:JWT_SECRET}
-    STRIPE_SECRET_KEY: ${env:STRIPE_SECRET_KEY}
-    SMTP_HOST: ${env:SMTP_HOST}
-    SMTP_PORT: ${env:SMTP_PORT}
-    SMTP_USER: ${env:SMTP_USER}
-    SMTP_PASSWORD: ${env:SMTP_PASSWORD}
 
   iam:
     role:
@@ -30,10 +24,7 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
           Resource:
-            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.DYNAMODB_USERS_TABLE}"
-            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.DYNAMODB_PRODUCTS_TABLE}"
-            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.DYNAMODB_ORDERS_TABLE}"
-            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.DYNAMODB_REVIEWS_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/*"
         - Effect: Allow
           Action:
             - s3:PutObject
@@ -141,8 +132,14 @@ resources:
         Name: ${self:service}-${self:provider.stage}
 
 plugins:
+  - serverless-dotenv-plugin
   - serverless-offline
 
 custom:
   serverless-offline:
     httpPort: 3000
+  dotenv:
+    exclude:
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_REGION

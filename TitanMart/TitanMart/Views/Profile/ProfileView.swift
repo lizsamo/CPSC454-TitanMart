@@ -97,7 +97,7 @@ struct ProfileView: View {
                                 icon: "list.bullet.rectangle",
                                 title: "My Listings",
                                 iconColor: .titanBlue,
-                                destination: AnyView(Text("Coming Soon"))
+                                destination: AnyView(MyListingsView())
                             )
 
                             Divider().padding(.leading, 60)
@@ -106,7 +106,7 @@ struct ProfileView: View {
                                 icon: "plus.circle.fill",
                                 title: "Sell an Item",
                                 iconColor: .success,
-                                destination: AnyView(Text("Coming Soon"))
+                                destination: AnyView(SellItemView())
                             )
                         }
                         .background(Color.cardBackground)

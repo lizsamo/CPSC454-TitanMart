@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 
 enum APIError: Error {
     case invalidURL
@@ -202,5 +203,63 @@ class APIService {
             throw APIError.serverError("No client secret returned")
         }
         return clientSecret
+    }
+
+    // MARK: - Image Upload
+    func uploadImages(_ images: [UIImage], token: String) async throws -> [String] {
+        guard let url = URL(string: "\(baseURL)/upload/images") else {
+            throw APIError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        // Create multipart form data
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+
+        for (index, image) in images.enumerated() {
+            guard let imageData = image.jpegData(compressionQuality: 0.8) else { continue }
+
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"images\"; filename=\"image\(index).jpg\"\r\n".data(using: .utf8)!)
+            body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+            body.append(imageData)
+            body.append("\r\n".data(using: .utf8)!)
+        }
+
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+
+            guard (200...299).contains(httpResponse.statusCode) else {
+                if let errorMessage = try? JSONDecoder().decode([String: String].self, from: data),
+                   let message = errorMessage["message"] {
+                    throw APIError.serverError(message)
+                }
+                throw APIError.serverError("Status code: \(httpResponse.statusCode)")
+            }
+
+            struct UploadResponse: Decodable {
+                let urls: [String]
+            }
+
+            let uploadResponse = try JSONDecoder().decode(UploadResponse.self, from: data)
+            return uploadResponse.urls
+
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw APIError.networkError(error)
+        }
     }
 }

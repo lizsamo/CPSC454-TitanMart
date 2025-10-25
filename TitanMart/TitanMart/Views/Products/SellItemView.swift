@@ -288,7 +288,7 @@ struct SellItemView: View {
                     imageURLs: imageURLs,
                     sellerId: user.id,
                     sellerName: user.displayName,
-                    sellerRating: user.rating,
+                    sellerRating: user.rating.isNaN ? nil : user.rating,
                     location: location
                 )
 

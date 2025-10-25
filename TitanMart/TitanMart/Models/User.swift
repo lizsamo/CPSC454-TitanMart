@@ -8,10 +8,10 @@
 import Foundation
 
 struct User: Identifiable, Codable {
-    let id: String
-    var email: String
-    var fullName: String
+    var id: String { csufEmail } // csufEmail is the unique identifier
     var csufEmail: String
+    var username: String
+    var fullName: String
     var isEmailVerified: Bool
     var profileImageURL: String?
     var rating: Double
@@ -19,14 +19,13 @@ struct User: Identifiable, Codable {
     var createdAt: Date
 
     var displayName: String {
-        fullName.isEmpty ? email : fullName
+        fullName.isEmpty ? username : fullName
     }
 
     enum CodingKeys: String, CodingKey {
-        case id = "userId"
-        case email
-        case fullName
         case csufEmail
+        case username
+        case fullName
         case isEmailVerified
         case profileImageURL
         case rating
@@ -34,19 +33,17 @@ struct User: Identifiable, Codable {
         case createdAt
     }
 
-    init(id: String = UUID().uuidString,
-         email: String,
+    init(csufEmail: String,
+         username: String,
          fullName: String = "",
-         csufEmail: String,
          isEmailVerified: Bool = false,
          profileImageURL: String? = nil,
          rating: Double = 0.0,
          totalRatings: Int = 0,
          createdAt: Date = Date()) {
-        self.id = id
-        self.email = email
-        self.fullName = fullName
         self.csufEmail = csufEmail
+        self.username = username
+        self.fullName = fullName
         self.isEmailVerified = isEmailVerified
         self.profileImageURL = profileImageURL
         self.rating = rating

@@ -50,7 +50,7 @@ class ProductViewModel: ObservableObject {
             imageURLs: imageURLs,
             sellerId: user.id,
             sellerName: user.displayName,
-            sellerRating: user.rating
+            sellerRating: user.rating.isNaN ? nil : user.rating
         )
 
         let createdProduct = try await APIService.shared.createProduct(product, token: token)

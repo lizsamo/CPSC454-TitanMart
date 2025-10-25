@@ -7,15 +7,19 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
+
+// Upload routes FIRST - no body parsing
+app.use('/api/upload', require('./routes/upload'));
+
+// JSON parser for all other routes
 app.use(express.json());
 
-// Routes
+// Other routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/payment', require('./routes/payment'));
-app.use('/api/upload', require('./routes/upload'));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -40,4 +44,6 @@ if (process.env.NODE_ENV !== 'production') {
 
 // For AWS Lambda
 const serverless = require('serverless-http');
-module.exports.handler = serverless(app);
+module.exports.handler = serverless(app, {
+  binary: ['image/*', 'multipart/form-data']
+});

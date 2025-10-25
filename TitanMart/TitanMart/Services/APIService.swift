@@ -38,7 +38,7 @@ class APIService {
     static let shared = APIService()
 
     // AWS API Gateway endpoint
-    private let baseURL = "https://r3iarn2t5h.execute-api.us-east-2.amazonaws.com/dev/api"
+    private let baseURL = "https://sqcbfiukk0.execute-api.us-east-2.amazonaws.com/dev/api"
 
     private init() {}
 
@@ -115,9 +115,9 @@ class APIService {
     }
 
     // MARK: - Authentication
-    func register(email: String, password: String, csufEmail: String, fullName: String) async throws -> User {
+    func register(username: String, password: String, csufEmail: String, fullName: String) async throws -> User {
         let body = [
-            "email": email,
+            "username": username,
             "password": password,
             "csufEmail": csufEmail,
             "fullName": fullName
@@ -126,20 +126,20 @@ class APIService {
         return try await request(endpoint: "/auth/register", method: "POST", body: jsonData)
     }
 
-    func login(email: String, password: String) async throws -> (user: User, token: String) {
+    func login(username: String, password: String) async throws -> (user: User, token: String) {
         struct LoginResponse: Decodable {
             let user: User
             let token: String
         }
 
-        let body = ["email": email, "password": password]
+        let body = ["username": username, "password": password]
         let jsonData = try JSONEncoder().encode(body)
         let response: LoginResponse = try await request(endpoint: "/auth/login", method: "POST", body: jsonData)
         return (user: response.user, token: response.token)
     }
 
-    func verifyEmail(code: String, userId: String) async throws -> User {
-        let body = ["code": code, "userId": userId]
+    func verifyEmail(code: String, csufEmail: String) async throws -> User {
+        let body = ["code": code, "csufEmail": csufEmail]
         let jsonData = try JSONEncoder().encode(body)
         return try await request(endpoint: "/auth/verify-email", method: "POST", body: jsonData)
     }
@@ -222,7 +222,11 @@ class APIService {
         var body = Data()
 
         for (index, image) in images.enumerated() {
-            guard let imageData = image.jpegData(compressionQuality: 0.8) else { continue }
+            // Resize and compress image to reduce payload size
+            guard let resizedImage = image.resizeImage(maxDimension: 1200),
+                  let imageData = resizedImage.jpegData(compressionQuality: 0.7) else {
+                continue
+            }
 
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
             body.append("Content-Disposition: form-data; name=\"images\"; filename=\"image\(index).jpg\"\r\n".data(using: .utf8)!)
@@ -261,5 +265,34 @@ class APIService {
         } catch {
             throw APIError.networkError(error)
         }
+    }
+}
+
+// MARK: - UIImage Extension for Image Resizing
+extension UIImage {
+    func resizeImage(maxDimension: CGFloat) -> UIImage? {
+        let size = self.size
+
+        // Check if resizing is needed
+        if size.width <= maxDimension && size.height <= maxDimension {
+            return self
+        }
+
+        // Calculate new size maintaining aspect ratio
+        var newSize: CGSize
+        if size.width > size.height {
+            let ratio = maxDimension / size.width
+            newSize = CGSize(width: maxDimension, height: size.height * ratio)
+        } else {
+            let ratio = maxDimension / size.height
+            newSize = CGSize(width: size.width * ratio, height: maxDimension)
+        }
+
+        // Resize the image
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        defer { UIGraphicsEndImageContext() }
+
+        self.draw(in: CGRect(origin: .zero, size: newSize))
+        return UIGraphicsGetImageFromCurrentImageContext()
     }
 }

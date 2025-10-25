@@ -8,7 +8,7 @@
 import Foundation
 
 enum ProductCategory: String, Codable, CaseIterable {
-    case textbooks = "Textbooks"
+    case textbooks = "Books"
     case electronics = "Electronics"
     case furniture = "Furniture"
     case clothing = "Clothing"
@@ -35,7 +35,7 @@ struct Product: Identifiable, Codable {
     var imageURLs: [String]
     var sellerId: String
     var sellerName: String
-    var sellerRating: Double
+    var sellerRating: Double?
     var isAvailable: Bool
     var createdAt: Date
     var location: String
@@ -49,7 +49,7 @@ struct Product: Identifiable, Codable {
          imageURLs: [String] = [],
          sellerId: String,
          sellerName: String,
-         sellerRating: Double = 0.0,
+         sellerRating: Double? = nil,
          isAvailable: Bool = true,
          createdAt: Date = Date(),
          location: String = "CSUF Campus") {

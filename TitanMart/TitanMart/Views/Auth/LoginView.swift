@@ -9,7 +9,7 @@ import SwiftUI
 
 struct LoginView: View {
     @StateObject private var authService = AuthService.shared
-    @State private var email = ""
+    @State private var username = ""
     @State private var password = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -36,10 +36,9 @@ struct LoginView: View {
 
                 // Login Form
                 VStack(spacing: 15) {
-                    TextField("Email", text: $email)
+                    TextField("Username", text: $username)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .textInputAutocapitalization(.never)
-                        .keyboardType(.emailAddress)
 
                     SecureField("Password", text: $password)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -92,7 +91,7 @@ struct LoginView: View {
 
         Task {
             do {
-                try await authService.login(email: email, password: password)
+                try await authService.login(username: username, password: password)
             } catch {
                 errorMessage = error.localizedDescription
             }

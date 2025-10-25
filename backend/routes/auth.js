@@ -2,9 +2,8 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, QueryCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { sendVerificationEmail } = require('../utils/email');
 
 const client = new DynamoDBClient({ region: process.env.AWS_REGION });
@@ -13,7 +12,14 @@ const docClient = DynamoDBDocumentClient.from(client);
 // Register new user
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, csufEmail, fullName } = req.body;
+    const { username, password, csufEmail, fullName } = req.body;
+
+    // Validate required fields
+    if (!username || !password || !csufEmail || !fullName) {
+      return res.status(400).json({
+        message: 'All fields are required: username, password, csufEmail, fullName'
+      });
+    }
 
     // Validate CSUF email
     if (!csufEmail.toLowerCase().endsWith('@csu.fullerton.edu')) {
@@ -22,17 +28,35 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Check if user already exists
-    const existingUser = await docClient.send(new ScanCommand({
+    // Validate username (alphanumeric, underscore, hyphen only, 3-20 chars)
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(username)) {
+      return res.status(400).json({
+        message: 'Username must be 3-20 characters (letters, numbers, underscore, hyphen only)'
+      });
+    }
+
+    // Check if CSUF email already exists
+    const existingByEmail = await docClient.send(new GetCommand({
       TableName: process.env.DYNAMODB_USERS_TABLE,
-      FilterExpression: 'email = :email',
+      Key: { csufEmail: csufEmail.toLowerCase() }
+    }));
+
+    if (existingByEmail.Item) {
+      return res.status(400).json({ message: 'CSUF email already registered' });
+    }
+
+    // Check if username already exists
+    const existingByUsername = await docClient.send(new QueryCommand({
+      TableName: process.env.DYNAMODB_USERS_TABLE,
+      IndexName: 'UsernameIndex',
+      KeyConditionExpression: 'username = :username',
       ExpressionAttributeValues: {
-        ':email': email
+        ':username': username.toLowerCase()
       }
     }));
 
-    if (existingUser.Items && existingUser.Items.length > 0) {
-      return res.status(400).json({ message: 'User already exists' });
+    if (existingByUsername.Items && existingByUsername.Items.length > 0) {
+      return res.status(400).json({ message: 'Username already taken' });
     }
 
     // Hash password
@@ -41,12 +65,11 @@ router.post('/register', async (req, res) => {
     // Create verification code
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Create user
+    // Create user (csufEmail is the partition key)
     const user = {
-      userId: uuidv4(),
-      email,
+      csufEmail: csufEmail.toLowerCase(),
+      username: username.toLowerCase(),
       password: hashedPassword,
-      csufEmail,
       fullName,
       isEmailVerified: false,
       verificationCode,
@@ -61,7 +84,12 @@ router.post('/register', async (req, res) => {
     }));
 
     // Send verification email
-    await sendVerificationEmail(csufEmail, verificationCode);
+    try {
+      await sendVerificationEmail(csufEmail, verificationCode);
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError);
+      // Continue registration even if email fails
+    }
 
     // Remove sensitive data
     delete user.password;
@@ -74,17 +102,22 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login
+// Login with username
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
-    // Find user
-    const result = await docClient.send(new ScanCommand({
+    if (!username || !password) {
+      return res.status(400).json({ message: 'Username and password required' });
+    }
+
+    // Find user by username using GSI
+    const result = await docClient.send(new QueryCommand({
       TableName: process.env.DYNAMODB_USERS_TABLE,
-      FilterExpression: 'email = :email',
+      IndexName: 'UsernameIndex',
+      KeyConditionExpression: 'username = :username',
       ExpressionAttributeValues: {
-        ':email': email
+        ':username': username.toLowerCase()
       }
     }));
 
@@ -100,9 +133,12 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Generate JWT
+    // Generate JWT (use csufEmail as identifier since it's the primary key)
     const token = jwt.sign(
-      { userId: user.userId, email: user.email },
+      {
+        csufEmail: user.csufEmail,
+        username: user.username
+      },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
@@ -121,12 +157,16 @@ router.post('/login', async (req, res) => {
 // Verify email
 router.post('/verify-email', async (req, res) => {
   try {
-    const { code, userId } = req.body;
+    const { code, csufEmail } = req.body;
 
-    // Get user by primary key
+    if (!code || !csufEmail) {
+      return res.status(400).json({ message: 'Code and csufEmail required' });
+    }
+
+    // Get user by csufEmail (partition key)
     const result = await docClient.send(new GetCommand({
       TableName: process.env.DYNAMODB_USERS_TABLE,
-      Key: { userId: userId }
+      Key: { csufEmail: csufEmail.toLowerCase() }
     }));
 
     if (!result.Item) {
@@ -135,6 +175,10 @@ router.post('/verify-email', async (req, res) => {
 
     const user = result.Item;
 
+    if (user.isEmailVerified) {
+      return res.status(400).json({ message: 'Email already verified' });
+    }
+
     if (user.verificationCode !== code) {
       return res.status(400).json({ message: 'Invalid verification code' });
     }
@@ -142,8 +186,8 @@ router.post('/verify-email', async (req, res) => {
     // Update user
     await docClient.send(new UpdateCommand({
       TableName: process.env.DYNAMODB_USERS_TABLE,
-      Key: { userId: userId },
-      UpdateExpression: 'SET isEmailVerified = :verified',
+      Key: { csufEmail: csufEmail.toLowerCase() },
+      UpdateExpression: 'SET isEmailVerified = :verified REMOVE verificationCode',
       ExpressionAttributeValues: {
         ':verified': true
       }

@@ -119,7 +119,7 @@ struct ProductDetailView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "star.fill")
                                 .foregroundColor(.orange)
-                            Text(String(format: "%.1f", product.sellerRating))
+                            Text(String(format: "%.1f", product.sellerRating ?? 0.0))
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                         }

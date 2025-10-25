@@ -191,7 +191,7 @@ struct ProductCardView: View {
                     HStack(spacing: 3) {
                         Image(systemName: "star.fill")
                             .font(.caption2)
-                        Text(String(format: "%.1f", product.sellerRating))
+                        Text(String(format: "%.1f", product.sellerRating ?? 0.0))
                             .font(.caption)
                             .fontWeight(.medium)
                     }

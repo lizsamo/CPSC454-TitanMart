@@ -68,7 +68,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const product = {
       ...req.body,
       id: uuidv4(),
-      sellerId: req.user.userId,
+      sellerId: req.user.csufEmail,
       isAvailable: true,
       createdAt: new Date().toISOString()
     };

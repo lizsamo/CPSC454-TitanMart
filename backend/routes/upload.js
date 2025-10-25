@@ -33,7 +33,7 @@ router.post('/image', authMiddleware, upload.single('image'), async (req, res) =
     // Generate unique filename
     const fileExtension = req.file.originalname.split('.').pop();
     const fileName = `${uuidv4()}.${fileExtension}`;
-    const key = `products/${req.user.userId}/${fileName}`;
+    const key = `products/${req.user.csufEmail}/${fileName}`;
 
     // Upload to S3
     const command = new PutObjectCommand({
@@ -68,7 +68,7 @@ router.post('/images', authMiddleware, upload.array('images', 5), async (req, re
     const uploadPromises = req.files.map(async (file) => {
       const fileExtension = file.originalname.split('.').pop();
       const fileName = `${uuidv4()}.${fileExtension}`;
-      const key = `products/${req.user.userId}/${fileName}`;
+      const key = `products/${req.user.csufEmail}/${fileName}`;
 
       const command = new PutObjectCommand({
         Bucket: process.env.S3_BUCKET_NAME,

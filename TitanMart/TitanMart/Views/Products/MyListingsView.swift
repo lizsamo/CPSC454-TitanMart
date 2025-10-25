@@ -99,7 +99,7 @@ struct MyListingRowView: View {
             // Product Image
             if let firstImageURL = product.imageURLs.first,
                let url = URL(string: firstImageURL) {
-                AsyncImage(url: url) { phase in
+                AsyncImage(url: url, transaction: Transaction(animation: .default)) { phase in
                     switch phase {
                     case .empty:
                         ProgressView()
@@ -111,22 +111,33 @@ struct MyListingRowView: View {
                             .frame(width: 80, height: 80)
                             .cornerRadius(8)
                             .clipped()
-                    case .failure:
+                    case .failure(let error):
                         Image(systemName: "photo")
                             .font(.largeTitle)
                             .foregroundColor(.gray)
                             .frame(width: 80, height: 80)
                             .background(Color(.systemGray6))
                             .cornerRadius(8)
+                            .onAppear {
+                                print("❌ Image failed to load for \(product.title)")
+                                print("   URL: \(firstImageURL)")
+                                print("   Error: \(error)")
+                            }
                     @unknown default:
                         EmptyView()
                     }
+                }
+                .onAppear {
+                    print("🖼️ Loading image for \(product.title): \(firstImageURL)")
                 }
             } else {
                 Image(systemName: "photo")
                     .font(.largeTitle)
                     .foregroundColor(.gray)
                     .frame(width: 80, height: 80)
+                    .onAppear {
+                        print("⚠️ No image URL for \(product.title), imageURLs: \(product.imageURLs)")
+                    }
                     .background(Color(.systemGray6))
                     .cornerRadius(8)
             }

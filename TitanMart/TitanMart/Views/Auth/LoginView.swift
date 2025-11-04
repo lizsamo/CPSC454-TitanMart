@@ -14,6 +14,7 @@ struct LoginView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showingSignup = false
+    @State private var showingForgotPassword = false
 
     var body: some View {
         NavigationView {
@@ -65,6 +66,14 @@ struct LoginView: View {
                     .foregroundColor(.white)
                     .cornerRadius(10)
                     .disabled(isLoading)
+
+                    // Forgot Password Link
+                    Button(action: { showingForgotPassword = true }) {
+                        Text("Forgot Password?")
+                            .font(.subheadline)
+                            .foregroundColor(.blue)
+                    }
+                    .padding(.top, 5)
                 }
                 .padding(.horizontal)
 
@@ -81,6 +90,9 @@ struct LoginView: View {
             .navigationBarHidden(true)
             .sheet(isPresented: $showingSignup) {
                 SignupView()
+            }
+            .sheet(isPresented: $showingForgotPassword) {
+                ForgotPasswordView()
             }
         }
     }

@@ -204,4 +204,116 @@ router.post('/verify-email', async (req, res) => {
   }
 });
 
+// Forgot password - send verification code
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ message: 'Username required' });
+    }
+
+    // Find user by username using GSI
+    const result = await docClient.send(new QueryCommand({
+      TableName: process.env.DYNAMODB_USERS_TABLE,
+      IndexName: 'UsernameIndex',
+      KeyConditionExpression: 'username = :username',
+      ExpressionAttributeValues: {
+        ':username': username.toLowerCase()
+      }
+    }));
+
+    if (!result.Items || result.Items.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const user = result.Items[0];
+
+    // Generate password reset code
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Update user with reset code
+    await docClient.send(new UpdateCommand({
+      TableName: process.env.DYNAMODB_USERS_TABLE,
+      Key: { csufEmail: user.csufEmail },
+      UpdateExpression: 'SET passwordResetCode = :code, resetCodeExpiry = :expiry',
+      ExpressionAttributeValues: {
+        ':code': resetCode,
+        ':expiry': Date.now() + 15 * 60 * 1000 // 15 minutes from now
+      }
+    }));
+
+    // Send reset code via email
+    try {
+      await sendVerificationEmail(user.csufEmail, resetCode, 'password-reset');
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError);
+      return res.status(500).json({ message: 'Failed to send reset code' });
+    }
+
+    res.json({
+      message: 'Password reset code sent to your CSUF email',
+      csufEmail: user.csufEmail.replace(/(.{2}).*(@.*)/, '$1***$2') // Partially hide email
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Server error during password reset request' });
+  }
+});
+
+// Reset password with verification code
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { username, code, newPassword } = req.body;
+
+    if (!username || !code || !newPassword) {
+      return res.status(400).json({ message: 'Username, code, and new password required' });
+    }
+
+    // Find user by username
+    const result = await docClient.send(new QueryCommand({
+      TableName: process.env.DYNAMODB_USERS_TABLE,
+      IndexName: 'UsernameIndex',
+      KeyConditionExpression: 'username = :username',
+      ExpressionAttributeValues: {
+        ':username': username.toLowerCase()
+      }
+    }));
+
+    if (!result.Items || result.Items.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const user = result.Items[0];
+
+    // Verify reset code
+    if (!user.passwordResetCode || user.passwordResetCode !== code) {
+      return res.status(400).json({ message: 'Invalid reset code' });
+    }
+
+    // Check if code has expired
+    if (!user.resetCodeExpiry || Date.now() > user.resetCodeExpiry) {
+      return res.status(400).json({ message: 'Reset code has expired' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password and remove reset code
+    await docClient.send(new UpdateCommand({
+      TableName: process.env.DYNAMODB_USERS_TABLE,
+      Key: { csufEmail: user.csufEmail },
+      UpdateExpression: 'SET password = :password REMOVE passwordResetCode, resetCodeExpiry',
+      ExpressionAttributeValues: {
+        ':password': hashedPassword
+      }
+    }));
+
+    res.json({ message: 'Password successfully reset' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Server error during password reset' });
+  }
+});
+
 module.exports = router;

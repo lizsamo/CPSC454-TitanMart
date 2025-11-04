@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, ScanCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const { authMiddleware } = require('../middleware/auth');
 
 const client = new DynamoDBClient({ region: process.env.AWS_REGION });
@@ -18,10 +18,32 @@ router.post('/', authMiddleware, async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
+    // Create the order first
     await docClient.send(new PutCommand({
       TableName: process.env.DYNAMODB_ORDERS_TABLE,
       Item: order
     }));
+
+    // Mark all products in the order as unavailable
+    if (order.items && Array.isArray(order.items)) {
+      const updatePromises = order.items.map(item => {
+        const productId = item.product?.id || item.productId;
+        if (productId) {
+          return docClient.send(new UpdateCommand({
+            TableName: process.env.DYNAMODB_PRODUCTS_TABLE,
+            Key: { id: productId },
+            UpdateExpression: 'SET isAvailable = :available',
+            ExpressionAttributeValues: {
+              ':available': false
+            }
+          }));
+        }
+        return Promise.resolve();
+      });
+
+      await Promise.all(updatePromises);
+      console.log(`Marked ${updatePromises.length} products as unavailable for order ${order.id}`);
+    }
 
     res.status(201).json(order);
   } catch (error) {

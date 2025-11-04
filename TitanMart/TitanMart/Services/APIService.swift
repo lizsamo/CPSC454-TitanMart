@@ -144,6 +144,29 @@ class APIService {
         return try await request(endpoint: "/auth/verify-email", method: "POST", body: jsonData)
     }
 
+    func forgotPassword(username: String) async throws -> String {
+        struct ForgotPasswordResponse: Decodable {
+            let message: String
+            let csufEmail: String
+        }
+
+        let body = ["username": username]
+        let jsonData = try JSONEncoder().encode(body)
+        let response: ForgotPasswordResponse = try await request(endpoint: "/auth/forgot-password", method: "POST", body: jsonData)
+        return response.message
+    }
+
+    func resetPassword(username: String, code: String, newPassword: String) async throws -> String {
+        struct ResetPasswordResponse: Decodable {
+            let message: String
+        }
+
+        let body = ["username": username, "code": code, "newPassword": newPassword]
+        let jsonData = try JSONEncoder().encode(body)
+        let response: ResetPasswordResponse = try await request(endpoint: "/auth/reset-password", method: "POST", body: jsonData)
+        return response.message
+    }
+
     // MARK: - Products
     func fetchProducts(category: ProductCategory? = nil, searchQuery: String? = nil) async throws -> [Product] {
         var endpoint = "/products"

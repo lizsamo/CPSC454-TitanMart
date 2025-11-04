@@ -10,11 +10,16 @@ import SwiftUI
 struct ProductListView: View {
     @StateObject private var viewModel = ProductViewModel()
     @State private var showingFilters = false
-    
+
     let columns = [
         GridItem(.flexible(), spacing: Spacing.md),
         GridItem(.flexible(), spacing: Spacing.md)
     ]
+
+    // Filter to show only available products in browse view
+    private var availableProducts: [Product] {
+        viewModel.products.filter { $0.isAvailable }
+    }
     
     var body: some View {
         ScrollView {
@@ -91,19 +96,19 @@ struct ProductListView: View {
                 if viewModel.isLoading {
                     ProgressView()
                         .padding()
-                } else if viewModel.products.isEmpty {
+                } else if availableProducts.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "cart.badge.questionmark")
                             .font(.system(size: 60))
                             .foregroundColor(.gray)
-                        Text("No products found")
+                        Text("No products available")
                             .font(.headline)
                             .foregroundColor(.gray)
                     }
                     .padding(.top, 50)
                 } else {
                     LazyVGrid(columns: columns, spacing: 15) {
-                        ForEach(viewModel.products) { product in
+                        ForEach(availableProducts) { product in
                             NavigationLink(destination: ProductDetailView(product: product)) {
                                 ProductCardView(product: product)
                             }

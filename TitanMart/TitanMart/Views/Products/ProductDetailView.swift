@@ -197,6 +197,16 @@ struct ProductDetailView: View {
 
 #Preview {
     NavigationView {
-        ProductDetailView(product: Product.mockProducts[0])
+        ProductDetailView(product: Product(
+            title: "Sample Product",
+            description: "This is a sample product for preview",
+            price: 45.00,
+            category: .textbooks,
+            condition: .likeNew,
+            imageURLs: [],
+            sellerId: "preview-seller",
+            sellerName: "Preview User",
+            sellerRating: 4.8
+        ))
     }
 }

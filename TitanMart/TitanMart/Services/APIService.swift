@@ -50,8 +50,11 @@ class APIService {
         token: String? = nil
     ) async throws -> T {
         guard let url = URL(string: "\(baseURL)\(endpoint)") else {
+            print("❌ Invalid URL: \(baseURL)\(endpoint)")
             throw APIError.invalidURL
         }
+
+        print("🌐 Making \(method) request to: \(url.absoluteString)")
 
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -69,10 +72,14 @@ class APIService {
             let (data, response) = try await URLSession.shared.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ Response is not HTTPURLResponse")
                 throw APIError.invalidResponse
             }
 
+            print("📡 Response status: \(httpResponse.statusCode)")
+
             if httpResponse.statusCode == 401 {
+                print("❌ Unauthorized (401)")
                 throw APIError.unauthorized
             }
 
@@ -108,8 +115,11 @@ class APIService {
         } catch let error as APIError {
             throw error
         } catch let error as DecodingError {
+            print("❌ Decoding error: \(error)")
             throw APIError.decodingError(error)
         } catch {
+            print("❌ Network error: \(error.localizedDescription)")
+            print("❌ Full error: \(error)")
             throw APIError.networkError(error)
         }
     }

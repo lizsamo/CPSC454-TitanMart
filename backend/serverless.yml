@@ -15,6 +15,8 @@ provider:
     DYNAMODB_ORDERS_TABLE: ${self:service}-orders-${self:provider.stage}
     DYNAMODB_REVIEWS_TABLE: ${self:service}-reviews-${self:provider.stage}
     S3_BUCKET_NAME: ${self:service}-images-${self:provider.stage}
+    JWT_SECRET: ${ssm:/titanmart-api/dev/JWT_SECRET}
+    JWT_EXPIRES_IN: ${ssm:/titanmart-api/dev/JWT_EXPIRES_IN}
 
   iam:
     role:
@@ -42,6 +44,12 @@ provider:
             - ses:SendRawEmail
           Resource:
             - "*"
+        - Effect: Allow
+          Action:
+            - ssm:GetParameter
+            - ssm:GetParameters
+          Resource:
+            - "arn:aws:ssm:${self:provider.region}:*:parameter/titanmart-api/*"
 
 functions:
   app:

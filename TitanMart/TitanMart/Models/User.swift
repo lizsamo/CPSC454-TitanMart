@@ -13,6 +13,7 @@ struct User: Identifiable, Codable {
     var username: String
     var fullName: String
     var isEmailVerified: Bool
+    var lastVerifiedAt: Date?
     var profileImageURL: String?
     var rating: Double
     var totalRatings: Int
@@ -27,6 +28,7 @@ struct User: Identifiable, Codable {
         case username
         case fullName
         case isEmailVerified
+        case lastVerifiedAt
         case profileImageURL
         case rating
         case totalRatings
@@ -37,6 +39,7 @@ struct User: Identifiable, Codable {
          username: String,
          fullName: String = "",
          isEmailVerified: Bool = false,
+         lastVerifiedAt: Date? = nil,
          profileImageURL: String? = nil,
          rating: Double = 0.0,
          totalRatings: Int = 0,
@@ -45,6 +48,7 @@ struct User: Identifiable, Codable {
         self.username = username
         self.fullName = fullName
         self.isEmailVerified = isEmailVerified
+        self.lastVerifiedAt = lastVerifiedAt
         self.profileImageURL = profileImageURL
         self.rating = rating
         self.totalRatings = totalRatings

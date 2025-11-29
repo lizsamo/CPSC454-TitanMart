@@ -64,6 +64,7 @@ router.post('/register', async (req, res) => {
 
     // Create verification code
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationCodeExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes from now
 
     // Create user (csufEmail is the partition key)
     const user = {
@@ -73,6 +74,7 @@ router.post('/register', async (req, res) => {
       fullName,
       isEmailVerified: false,
       verificationCode,
+      verificationCodeExpiry,
       rating: 0,
       totalRatings: 0,
       createdAt: new Date().toISOString()
@@ -133,17 +135,43 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // If user is not verified, generate and send new verification code
-    if (!user.isEmailVerified) {
+    // Check if verification is needed
+    let needsVerification = !user.isEmailVerified;
+
+    // Check if 6 months have passed since last verification
+    if (user.isEmailVerified) {
+      const verificationDate = user.lastVerifiedAt ? new Date(user.lastVerifiedAt) : new Date(user.createdAt);
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      if (verificationDate < sixMonthsAgo) {
+        needsVerification = true;
+        // Mark user as needing re-verification
+        await docClient.send(new UpdateCommand({
+          TableName: process.env.DYNAMODB_USERS_TABLE,
+          Key: { csufEmail: user.csufEmail },
+          UpdateExpression: 'SET isEmailVerified = :verified',
+          ExpressionAttributeValues: {
+            ':verified': false
+          }
+        }));
+        user.isEmailVerified = false;
+      }
+    }
+
+    // If user needs verification, generate and send new verification code
+    if (needsVerification) {
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const verificationCodeExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes from now
 
       // Update user with new verification code
       await docClient.send(new UpdateCommand({
         TableName: process.env.DYNAMODB_USERS_TABLE,
         Key: { csufEmail: user.csufEmail },
-        UpdateExpression: 'SET verificationCode = :code',
+        UpdateExpression: 'SET verificationCode = :code, verificationCodeExpiry = :expiry',
         ExpressionAttributeValues: {
-          ':code': verificationCode
+          ':code': verificationCode,
+          ':expiry': verificationCodeExpiry
         }
       }));
 
@@ -208,19 +236,27 @@ router.post('/verify-email', async (req, res) => {
       return res.status(400).json({ message: 'Invalid verification code' });
     }
 
-    // Update user
+    // Check if verification code has expired
+    if (!user.verificationCodeExpiry || Date.now() > user.verificationCodeExpiry) {
+      return res.status(400).json({ message: 'Verification code has expired. Please request a new code.' });
+    }
+
+    // Update user - set verified and lastVerifiedAt
     await docClient.send(new UpdateCommand({
       TableName: process.env.DYNAMODB_USERS_TABLE,
       Key: { csufEmail: csufEmail.toLowerCase() },
-      UpdateExpression: 'SET isEmailVerified = :verified REMOVE verificationCode',
+      UpdateExpression: 'SET isEmailVerified = :verified, lastVerifiedAt = :lastVerified REMOVE verificationCode, verificationCodeExpiry',
       ExpressionAttributeValues: {
-        ':verified': true
+        ':verified': true,
+        ':lastVerified': new Date().toISOString()
       }
     }));
 
     user.isEmailVerified = true;
+    user.lastVerifiedAt = new Date().toISOString();
     delete user.password;
     delete user.verificationCode;
+    delete user.verificationCodeExpiry;
 
     res.json(user);
   } catch (error) {
@@ -368,14 +404,16 @@ router.post('/resend-verification', async (req, res) => {
 
     // Generate new verification code
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationCodeExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes from now
 
     // Update user with new verification code
     await docClient.send(new UpdateCommand({
       TableName: process.env.DYNAMODB_USERS_TABLE,
       Key: { csufEmail: csufEmail.toLowerCase() },
-      UpdateExpression: 'SET verificationCode = :code',
+      UpdateExpression: 'SET verificationCode = :code, verificationCodeExpiry = :expiry',
       ExpressionAttributeValues: {
-        ':code': verificationCode
+        ':code': verificationCode,
+        ':expiry': verificationCodeExpiry
       }
     }));
 

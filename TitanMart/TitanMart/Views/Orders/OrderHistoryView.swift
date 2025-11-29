@@ -150,12 +150,12 @@ struct OrderCard: View {
                     .font(.headline)
             }
 
-            // Review Button (only for completed orders)
-            if order.status == .completed {
+            // Review Button (only for completed orders and when current user is the buyer)
+            if order.status == .completed && order.buyerId == AuthService.shared.currentUser?.csufEmail {
                 Button(action: onReviewTapped) {
                     HStack {
                         Image(systemName: "star.fill")
-                        Text("Leave Review")
+                        Text("Leave Review for Seller")
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)

@@ -20,14 +20,14 @@ class AuthService: ObservableObject {
     }
 
     // MARK: - Authentication Methods
-    func register(email: String, password: String, csufEmail: String, fullName: String) async throws {
+    func register(username: String, password: String, csufEmail: String, fullName: String) async throws {
         // Validate CSUF email
         guard csufEmail.lowercased().hasSuffix("@csu.fullerton.edu") else {
             throw APIError.serverError("Must use a valid CSUF email address (@csu.fullerton.edu)")
         }
 
         let user = try await APIService.shared.register(
-            email: email,
+            username: username,
             password: password,
             csufEmail: csufEmail,
             fullName: fullName
@@ -35,18 +35,26 @@ class AuthService: ObservableObject {
 
         await MainActor.run {
             self.currentUser = user
-            self.isAuthenticated = true
+            // Don't mark as authenticated - user needs to verify email first
+            self.isAuthenticated = false
         }
     }
 
-    func login(email: String, password: String) async throws {
-        let (user, token) = try await APIService.shared.login(email: email, password: password)
+    func login(username: String, password: String) async throws {
+        let (user, token) = try await APIService.shared.login(username: username, password: password)
 
         await MainActor.run {
             self.currentUser = user
             self.authToken = token
-            self.isAuthenticated = true
-            self.saveAuth(user: user, token: token)
+
+            // Only mark as authenticated if email is verified
+            if user.isEmailVerified {
+                self.isAuthenticated = true
+                self.saveAuth(user: user, token: token)
+            } else {
+                // User needs to verify email first
+                self.isAuthenticated = false
+            }
         }
     }
 
@@ -58,11 +66,32 @@ class AuthService: ObservableObject {
     }
 
     func verifyEmail(code: String) async throws {
-        guard let userId = currentUser?.id else {
+        guard let csufEmail = currentUser?.csufEmail else {
             throw APIError.unauthorized
         }
 
-        let user = try await APIService.shared.verifyEmail(code: code, userId: userId)
+        let user = try await APIService.shared.verifyEmail(code: code, csufEmail: csufEmail)
+
+        await MainActor.run {
+            self.currentUser = user
+            // Mark as authenticated after successful verification
+            self.isAuthenticated = true
+            if let token = self.authToken {
+                self.saveAuth(user: user, token: token)
+            }
+        }
+    }
+
+    func resendVerificationCode(csufEmail: String) async throws {
+        _ = try await APIService.shared.resendVerificationCode(csufEmail: csufEmail)
+    }
+
+    func refreshUserProfile() async throws {
+        guard let csufEmail = currentUser?.csufEmail else {
+            throw APIError.unauthorized
+        }
+
+        let user = try await APIService.shared.getUserProfile(csufEmail: csufEmail)
 
         await MainActor.run {
             self.currentUser = user

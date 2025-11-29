@@ -12,12 +12,14 @@ struct SignupView: View {
     @StateObject private var authService = AuthService.shared
 
     @State private var fullName = ""
-    @State private var email = ""
+    @State private var username = ""
     @State private var csufEmail = ""
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showVerification = false
+    @State private var registeredEmail = ""
 
     var body: some View {
         NavigationView {
@@ -32,10 +34,9 @@ struct SignupView: View {
                         TextField("Full Name", text: $fullName)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
 
-                        TextField("Email", text: $email)
+                        TextField("Username", text: $username)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                             .textInputAutocapitalization(.never)
-                            .keyboardType(.emailAddress)
 
                         VStack(alignment: .leading, spacing: 5) {
                             TextField("CSUF Email", text: $csufEmail)
@@ -50,9 +51,15 @@ struct SignupView: View {
 
                         SecureField("Password", text: $password)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textContentType(.oneTimeCode)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
 
                         SecureField("Confirm Password", text: $confirmPassword)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textContentType(.oneTimeCode)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
 
                         if let error = errorMessage {
                             Text(error)
@@ -84,12 +91,15 @@ struct SignupView: View {
             .navigationBarItems(trailing: Button("Cancel") {
                 dismiss()
             })
+            .navigationDestination(isPresented: $showVerification) {
+                EmailVerificationView(csufEmail: registeredEmail)
+            }
         }
     }
 
     private var isFormValid: Bool {
         !fullName.isEmpty &&
-        !email.isEmpty &&
+        !username.isEmpty &&
         !csufEmail.isEmpty &&
         csufEmail.lowercased().hasSuffix("@csu.fullerton.edu") &&
         !password.isEmpty &&
@@ -104,16 +114,27 @@ struct SignupView: View {
         Task {
             do {
                 try await authService.register(
-                    email: email,
+                    username: username,
                     password: password,
                     csufEmail: csufEmail,
                     fullName: fullName
                 )
-                dismiss()
+                await MainActor.run {
+                    registeredEmail = csufEmail
+                    showVerification = true
+                    isLoading = false
+                }
+            } catch let apiError as APIError {
+                await MainActor.run {
+                    errorMessage = apiError.localizedDescription
+                    isLoading = false
+                }
             } catch {
-                errorMessage = error.localizedDescription
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isLoading = false
+                }
             }
-            isLoading = false
         }
     }
 }

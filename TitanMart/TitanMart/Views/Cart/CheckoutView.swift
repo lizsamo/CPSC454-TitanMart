@@ -11,6 +11,7 @@ struct CheckoutView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var cartService = CartService.shared
     @StateObject private var orderViewModel = OrderViewModel()
+    @StateObject private var paymentService = PaymentService.shared
     @State private var meetingLocation = "CSUF Campus - Pollak Library"
     @State private var isProcessing = false
     @State private var errorMessage: String?
@@ -190,13 +191,14 @@ struct CheckoutView: View {
             .navigationBarItems(trailing: Button("Cancel") {
                 dismiss()
             })
-            .alert("Order Placed Successfully!", isPresented: $showingSuccess) {
+            .alert("Payment Successful!", isPresented: $showingSuccess) {
                 Button("OK") {
                     cartService.clearCart()
+                    isProcessing = false
                     dismiss()
                 }
             } message: {
-                Text("Your order has been placed. The seller will contact you to arrange pickup.")
+                Text("Your payment has been processed and order confirmed. The seller will contact you to arrange pickup.")
             }
         }
     }
@@ -207,12 +209,29 @@ struct CheckoutView: View {
 
         Task {
             do {
-                _ = try await orderViewModel.createOrder(items: cartService.items)
-                showingSuccess = true
+                // Step 1: Create the order first (to get orderId)
+                let order = try await orderViewModel.createOrder(items: cartService.items)
+
+                // Step 2: Process payment with Stripe
+                let paymentSucceeded = try await paymentService.processPayment(
+                    amount: order.totalAmount,
+                    orderId: order.id
+                )
+
+                // Step 3: Handle payment result
+                if paymentSucceeded {
+                    showingSuccess = true
+                } else {
+                    errorMessage = "Payment was cancelled"
+                    isProcessing = false
+                }
+            } catch let apiError as APIError {
+                errorMessage = apiError.localizedDescription
+                isProcessing = false
             } catch {
                 errorMessage = error.localizedDescription
+                isProcessing = false
             }
-            isProcessing = false
         }
     }
 }

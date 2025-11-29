@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 
 enum APIError: Error {
     case invalidURL
@@ -36,8 +37,8 @@ enum APIError: Error {
 class APIService {
     static let shared = APIService()
 
-    // TODO: Replace with your actual AWS API Gateway endpoint
-    private let baseURL = "https://your-api-gateway-url.amazonaws.com/prod"
+    // AWS API Gateway endpoint
+    private let baseURL = "https://sqcbfiukk0.execute-api.us-east-2.amazonaws.com/dev/api"
 
     private init() {}
 
@@ -84,7 +85,24 @@ class APIService {
             }
 
             let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                let dateString = try container.decode(String.self)
+
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let date = formatter.date(from: dateString) {
+                    return date
+                }
+
+                // Fallback without fractional seconds
+                formatter.formatOptions = [.withInternetDateTime]
+                if let date = formatter.date(from: dateString) {
+                    return date
+                }
+
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid date format: \(dateString)")
+            }
             return try decoder.decode(T.self, from: data)
 
         } catch let error as APIError {
@@ -97,9 +115,9 @@ class APIService {
     }
 
     // MARK: - Authentication
-    func register(email: String, password: String, csufEmail: String, fullName: String) async throws -> User {
+    func register(username: String, password: String, csufEmail: String, fullName: String) async throws -> User {
         let body = [
-            "email": email,
+            "username": username,
             "password": password,
             "csufEmail": csufEmail,
             "fullName": fullName
@@ -108,22 +126,61 @@ class APIService {
         return try await request(endpoint: "/auth/register", method: "POST", body: jsonData)
     }
 
-    func login(email: String, password: String) async throws -> (user: User, token: String) {
+    func login(username: String, password: String) async throws -> (user: User, token: String) {
         struct LoginResponse: Decodable {
             let user: User
             let token: String
         }
 
-        let body = ["email": email, "password": password]
+        let body = ["username": username, "password": password]
         let jsonData = try JSONEncoder().encode(body)
         let response: LoginResponse = try await request(endpoint: "/auth/login", method: "POST", body: jsonData)
         return (user: response.user, token: response.token)
     }
 
-    func verifyEmail(code: String, userId: String) async throws -> User {
-        let body = ["code": code, "userId": userId]
+    func verifyEmail(code: String, csufEmail: String) async throws -> User {
+        let body = ["code": code, "csufEmail": csufEmail]
         let jsonData = try JSONEncoder().encode(body)
         return try await request(endpoint: "/auth/verify-email", method: "POST", body: jsonData)
+    }
+
+    func resendVerificationCode(csufEmail: String) async throws -> String {
+        struct ResendResponse: Decodable {
+            let message: String
+        }
+
+        let body = ["csufEmail": csufEmail]
+        let jsonData = try JSONEncoder().encode(body)
+        let response: ResendResponse = try await request(endpoint: "/auth/resend-verification", method: "POST", body: jsonData)
+        return response.message
+    }
+
+    func getUserProfile(csufEmail: String) async throws -> User {
+        let encodedEmail = csufEmail.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? csufEmail
+        return try await request(endpoint: "/auth/profile/\(encodedEmail)")
+    }
+
+    func forgotPassword(username: String) async throws -> String {
+        struct ForgotPasswordResponse: Decodable {
+            let message: String
+            let csufEmail: String
+        }
+
+        let body = ["username": username]
+        let jsonData = try JSONEncoder().encode(body)
+        let response: ForgotPasswordResponse = try await request(endpoint: "/auth/forgot-password", method: "POST", body: jsonData)
+        return response.message
+    }
+
+    func resetPassword(username: String, code: String, newPassword: String) async throws -> String {
+        struct ResetPasswordResponse: Decodable {
+            let message: String
+        }
+
+        let body = ["username": username, "code": code, "newPassword": newPassword]
+        let jsonData = try JSONEncoder().encode(body)
+        let response: ResetPasswordResponse = try await request(endpoint: "/auth/reset-password", method: "POST", body: jsonData)
+        return response.message
     }
 
     // MARK: - Products
@@ -185,5 +242,96 @@ class APIService {
             throw APIError.serverError("No client secret returned")
         }
         return clientSecret
+    }
+
+    // MARK: - Image Upload
+    func uploadImages(_ images: [UIImage], token: String) async throws -> [String] {
+        guard let url = URL(string: "\(baseURL)/upload/images") else {
+            throw APIError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        // Create multipart form data
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+
+        for (index, image) in images.enumerated() {
+            // Resize and compress image to reduce payload size
+            guard let resizedImage = image.resizeImage(maxDimension: 1200),
+                  let imageData = resizedImage.jpegData(compressionQuality: 0.7) else {
+                continue
+            }
+
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"images\"; filename=\"image\(index).jpg\"\r\n".data(using: .utf8)!)
+            body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+            body.append(imageData)
+            body.append("\r\n".data(using: .utf8)!)
+        }
+
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+
+            guard (200...299).contains(httpResponse.statusCode) else {
+                if let errorMessage = try? JSONDecoder().decode([String: String].self, from: data),
+                   let message = errorMessage["message"] {
+                    throw APIError.serverError(message)
+                }
+                throw APIError.serverError("Status code: \(httpResponse.statusCode)")
+            }
+
+            struct UploadResponse: Decodable {
+                let urls: [String]
+            }
+
+            let uploadResponse = try JSONDecoder().decode(UploadResponse.self, from: data)
+            return uploadResponse.urls
+
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw APIError.networkError(error)
+        }
+    }
+}
+
+// MARK: - UIImage Extension for Image Resizing
+extension UIImage {
+    func resizeImage(maxDimension: CGFloat) -> UIImage? {
+        let size = self.size
+
+        // Check if resizing is needed
+        if size.width <= maxDimension && size.height <= maxDimension {
+            return self
+        }
+
+        // Calculate new size maintaining aspect ratio
+        var newSize: CGSize
+        if size.width > size.height {
+            let ratio = maxDimension / size.width
+            newSize = CGSize(width: maxDimension, height: size.height * ratio)
+        } else {
+            let ratio = maxDimension / size.height
+            newSize = CGSize(width: size.width * ratio, height: maxDimension)
+        }
+
+        // Resize the image
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        defer { UIGraphicsEndImageContext() }
+
+        self.draw(in: CGRect(origin: .zero, size: newSize))
+        return UIGraphicsGetImageFromCurrentImageContext()
     }
 }

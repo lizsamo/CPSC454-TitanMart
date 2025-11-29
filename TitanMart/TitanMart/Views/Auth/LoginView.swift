@@ -9,11 +9,14 @@ import SwiftUI
 
 struct LoginView: View {
     @StateObject private var authService = AuthService.shared
-    @State private var email = ""
+    @State private var username = ""
     @State private var password = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showingSignup = false
+    @State private var showingForgotPassword = false
+    @State private var showingVerification = false
+    @State private var userEmailToVerify = ""
 
     var body: some View {
         NavigationView {
@@ -36,10 +39,9 @@ struct LoginView: View {
 
                 // Login Form
                 VStack(spacing: 15) {
-                    TextField("Email", text: $email)
+                    TextField("Username", text: $username)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .textInputAutocapitalization(.never)
-                        .keyboardType(.emailAddress)
 
                     SecureField("Password", text: $password)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -66,6 +68,14 @@ struct LoginView: View {
                     .foregroundColor(.white)
                     .cornerRadius(10)
                     .disabled(isLoading)
+
+                    // Forgot Password Link
+                    Button(action: { showingForgotPassword = true }) {
+                        Text("Forgot Password?")
+                            .font(.subheadline)
+                            .foregroundColor(.blue)
+                    }
+                    .padding(.top, 5)
                 }
                 .padding(.horizontal)
 
@@ -83,6 +93,12 @@ struct LoginView: View {
             .sheet(isPresented: $showingSignup) {
                 SignupView()
             }
+            .sheet(isPresented: $showingForgotPassword) {
+                ForgotPasswordView()
+            }
+            .fullScreenCover(isPresented: $showingVerification) {
+                EmailVerificationView(csufEmail: userEmailToVerify)
+            }
         }
     }
 
@@ -92,11 +108,22 @@ struct LoginView: View {
 
         Task {
             do {
-                try await authService.login(email: email, password: password)
+                try await authService.login(username: username, password: password)
+
+                // Check if user needs to verify email
+                await MainActor.run {
+                    if let user = authService.currentUser, !user.isEmailVerified {
+                        userEmailToVerify = user.csufEmail
+                        showingVerification = true
+                    }
+                    isLoading = false
+                }
             } catch {
-                errorMessage = error.localizedDescription
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isLoading = false
+                }
             }
-            isLoading = false
         }
     }
 }

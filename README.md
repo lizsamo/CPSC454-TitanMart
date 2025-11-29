@@ -101,6 +101,12 @@ cp .env.example .env
 npm run dev
 ```
 
+4. Deploy to AWS:
+```bash
+npm install -g serverless
+serverless deploy
+```
+
 ## Development Workflow
 
 ### Current Status
@@ -197,13 +203,17 @@ Use the included Postman collection or curl:
 curl http://localhost:3000/health
 ```
 
-## Contributing
+## Deployment
 
-This is a course project for CPSC 454. Team members should:
-1. Create feature branches
-2. Submit pull requests for review
-3. Follow the existing code style
-4. Update documentation
+### iOS App
+1. Configure signing in Xcode
+2. Archive the app (Product > Archive)
+3. Distribute to TestFlight or App Store
+
+### Backend
+```bash
+serverless deploy --stage prod
+```
 
 ## License
 
@@ -212,12 +222,15 @@ MIT License - This is an educational project.
 ## Team
 
 - Elizsa Montoya
-- [Add team members]
+- Denise Munoz-Martinez
+- Dylan Dao
+- Joshua Andrada
+- Miguel Perez
 
 ## Acknowledgments
 
 - California State University, Fullerton
-- CPSC 454 - Cloud Security
+- CPSC 454 - Cloud Security with Dr. Yun Tian
 - AWS Education
 - Stripe for payment processing
 

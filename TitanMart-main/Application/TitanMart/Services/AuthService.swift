@@ -35,8 +35,7 @@ class AuthService: ObservableObject {
 
         await MainActor.run {
             self.currentUser = user
-            // Don't mark as authenticated - user needs to verify email first
-            self.isAuthenticated = false
+            self.isAuthenticated = true
         }
     }
 
@@ -46,15 +45,8 @@ class AuthService: ObservableObject {
         await MainActor.run {
             self.currentUser = user
             self.authToken = token
-
-            // Only mark as authenticated if email is verified
-            if user.isEmailVerified {
-                self.isAuthenticated = true
-                self.saveAuth(user: user, token: token)
-            } else {
-                // User needs to verify email first
-                self.isAuthenticated = false
-            }
+            self.isAuthenticated = true
+            self.saveAuth(user: user, token: token)
         }
     }
 
@@ -71,27 +63,6 @@ class AuthService: ObservableObject {
         }
 
         let user = try await APIService.shared.verifyEmail(code: code, csufEmail: csufEmail)
-
-        await MainActor.run {
-            self.currentUser = user
-            // Mark as authenticated after successful verification
-            self.isAuthenticated = true
-            if let token = self.authToken {
-                self.saveAuth(user: user, token: token)
-            }
-        }
-    }
-
-    func resendVerificationCode(csufEmail: String) async throws {
-        _ = try await APIService.shared.resendVerificationCode(csufEmail: csufEmail)
-    }
-
-    func refreshUserProfile() async throws {
-        guard let csufEmail = currentUser?.csufEmail else {
-            throw APIError.unauthorized
-        }
-
-        let user = try await APIService.shared.getUserProfile(csufEmail: csufEmail)
 
         await MainActor.run {
             self.currentUser = user

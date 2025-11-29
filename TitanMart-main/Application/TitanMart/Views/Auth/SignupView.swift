@@ -18,8 +18,6 @@ struct SignupView: View {
     @State private var confirmPassword = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
-    @State private var showVerification = false
-    @State private var registeredEmail = ""
 
     var body: some View {
         NavigationView {
@@ -91,9 +89,6 @@ struct SignupView: View {
             .navigationBarItems(trailing: Button("Cancel") {
                 dismiss()
             })
-            .navigationDestination(isPresented: $showVerification) {
-                EmailVerificationView(csufEmail: registeredEmail)
-            }
         }
     }
 
@@ -119,22 +114,13 @@ struct SignupView: View {
                     csufEmail: csufEmail,
                     fullName: fullName
                 )
-                await MainActor.run {
-                    registeredEmail = csufEmail
-                    showVerification = true
-                    isLoading = false
-                }
+                dismiss()
             } catch let apiError as APIError {
-                await MainActor.run {
-                    errorMessage = apiError.localizedDescription
-                    isLoading = false
-                }
+                errorMessage = apiError.localizedDescription
             } catch {
-                await MainActor.run {
-                    errorMessage = error.localizedDescription
-                    isLoading = false
-                }
+                errorMessage = error.localizedDescription
             }
+            isLoading = false
         }
     }
 }

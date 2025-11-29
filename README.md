@@ -107,8 +107,6 @@ npm install -g serverless
 serverless deploy
 ```
 
-See [backend/aws-setup.md](backend/aws-setup.md) for detailed AWS setup instructions.
-
 ## Development Workflow
 
 ### Current Status
@@ -217,14 +215,6 @@ curl http://localhost:3000/health
 serverless deploy --stage prod
 ```
 
-## Contributing
-
-This is a course project for CPSC 454. Team members should:
-1. Create feature branches
-2. Submit pull requests for review
-3. Follow the existing code style
-4. Update documentation
-
 ## License
 
 MIT License - This is an educational project.
@@ -232,12 +222,15 @@ MIT License - This is an educational project.
 ## Team
 
 - Elizsa Montoya
-- [Add team members]
+- Denise Munoz-Martinez
+- Dylan Dao
+- Joshua Andrada
+- Miguel Perez
 
 ## Acknowledgments
 
 - California State University, Fullerton
-- CPSC 454 - Cloud Security
+- CPSC 454 - Cloud Security with Dr. Yun Tian
 - AWS Education
 - Stripe for payment processing
 

@@ -112,19 +112,19 @@ serverless deploy
 ### Current Status
 
 The iOS app is fully functional with:
-- ✅ User authentication (Login/Signup with CSUF email)
-- ✅ Product browsing and search
-- ✅ Shopping cart
-- ✅ Checkout flow
-- ✅ User profiles and orders
-- ✅ Mock data for testing
+- User authentication (Login/Signup with CSUF email)
+- Product browsing and search
+- Shopping cart
+- Checkout flow
+- User profiles and orders
+- Mock data for testing
 
 The backend includes:
-- ✅ RESTful API structure
-- ✅ Authentication endpoints
-- ✅ Product, order, and review endpoints
-- ✅ Stripe payment integration
-- ✅ AWS deployment configuration
+- RESTful API structure
+- Authentication endpoints
+- Product, order, and review endpoints
+- Stripe payment integration
+- AWS deployment configuration
 
 ### Next Steps
 

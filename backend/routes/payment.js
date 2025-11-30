@@ -5,7 +5,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { authMiddleware } = require('../middleware/auth');
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, UpdateCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 
 const client = new DynamoDBClient({ region: process.env.AWS_REGION });
 const docClient = DynamoDBDocumentClient.from(client);
@@ -13,10 +13,20 @@ const docClient = DynamoDBDocumentClient.from(client);
 // === 1) Create payment intent (normal JSON route, behind auth) ===
 router.post('/create-intent', authMiddleware, async (req, res) => {
   try {
-    const { amount, orderId } = req.body;
+    const {orderId } = req.body;
+
+    const dbOrder = await docClient.send(new GetCommand({
+      TableName: process.env.DYNAMODB_ORDERS_TABLE,
+      Key: { id: orderId }
+    }));
+
+    const order = dbOrder.Item;
+    if(order == null){
+      return res.status(404).json({ message: 'Order not found!'});
+    }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // dollars -> cents
+      amount: Math.round(order.totalPrice * 100), // dollars -> cents
       currency: 'usd',
       metadata: {
         orderId,

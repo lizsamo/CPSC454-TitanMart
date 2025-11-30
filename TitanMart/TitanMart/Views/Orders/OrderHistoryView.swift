@@ -32,7 +32,7 @@ struct OrderHistoryView: View {
                     .buttonStyle(.bordered)
                 }
                 .padding()
-            } else if viewModel.orders.isEmpty {
+            } else if viewModel.orders.filter({ $0.buyerId == AuthService.shared.currentUser?.csufEmail }).isEmpty {
                 VStack(spacing: 15) {
                     Image(systemName: "bag")
                         .font(.largeTitle)
@@ -47,7 +47,7 @@ struct OrderHistoryView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(viewModel.orders) { order in
+                        ForEach(viewModel.orders.filter { $0.buyerId == AuthService.shared.currentUser?.csufEmail }.sorted(by: { $0.createdAt > $1.createdAt })) { order in
                             OrderCard(order: order) {
                                 selectedOrderForReview = order
                                 showLeaveReview = true
